@@ -5,13 +5,12 @@ from time import sleep
 ALERT = False
 
 nodes = [
-    '192.168.43.184',
-    '192.168.43.185'
+    '192.168.43.184'
 ]
 
 panicAddress = ('', 10000)
 
-class type_t(enum):
+class type_t:
     human = 1
     arm = 2
     car = 3
@@ -26,7 +25,7 @@ class Node:
         self.type = type_t
         self.alarm = False
 
-sock = []
+sock = [None] * 10
 
 # Establish sockets for each node
 for i in range(len(nodes)):
@@ -41,29 +40,31 @@ for i in range(len(nodes)):
     sock[i].connect(server_address)
     sock[i].sendall('CONN_INIT')
     msg = sock[i].recv(16)
-    if msg not 'CONN_ACK':
+    if msg != 'CONN_ACK':
         print('Node has not acknowledged new connection! Continuing...')
 
 # Main Loop
 while True:
-    for i in sock:
+    for i in range(len(nodes)):
 
         # Send command to node
-        if ALERT and i.address not == panicAddress:
-            i.sendall('PANIC_EXTERN')
-        if ALERT and i.address == panicAddress:
-            i.sendall('PANIC_CONT')
+        if ALERT and nodes[i] != panicAddress:
+            sock[i].sendall('PANIC_EXTERN')
+        if ALERT and nodes[i] == panicAddress:
+            sock[i].sendall('PANIC_CONT')
         else:
-            i.sendall('DATA_REQ')
+            sock[i].sendall('DATA_REQ')
 
         # Receive and respond to node
-        msg = i.recv(16)
+        msg = sock[i].recv(16)
+        print('received "%s"' % msg)
+
         if msg == 'PANIC':
             ALERT = True
-            panicAddress = i.address
-            print(i.address, ': Alert recieved')
+            panicAddress = nodes[i]
+            print(nodes[i], ': Alert recieved')
         elif msg == 'OK':
-            print(i.address, ': OK')
+            print(nodes[i], ': OK')
         else:
             print('Unknown message received from node! Continuing...')
     
