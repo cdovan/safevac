@@ -1,5 +1,6 @@
 import socket
 import sys
+from time import sleep
 
 ALERT = False
 
@@ -27,10 +28,12 @@ class Node:
 
 sock = []
 
+# Establish sockets for each node
 for i in range(len(nodes)):
     sock[i] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock[i].settimeout(10)
 
+# Connect to nodes
 print('Connecting to all known nodes')
 for i in range(len(nodes)):
     server_address = (nodes[i], 10000)
@@ -41,8 +44,11 @@ for i in range(len(nodes)):
     if msg not 'CONN_ACK':
         print('Node has not acknowledged new connection! Continuing...')
 
+# Main Loop
 while True:
     for i in sock:
+
+        # Send command to node
         if ALERT and i.address not == panicAddress:
             i.sendall('PANIC_EXTERN')
         if ALERT and i.address == panicAddress:
@@ -50,6 +56,7 @@ while True:
         else:
             i.sendall('DATA_REQ')
 
+        # Receive and respond to node
         msg = i.recv(16)
         if msg == 'PANIC':
             ALERT = True
@@ -57,8 +64,7 @@ while True:
             print(i.address, ': Alert recieved')
         elif msg == 'OK':
             print(i.address, ': OK')
-            if ALERT:
-                i.sendall('')
-                print('Sending external Alert request to node')
         else:
             print('Unknown message received from node! Continuing...')
+    
+    sleep(1)
