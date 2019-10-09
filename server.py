@@ -1,12 +1,16 @@
 import socket
 import sys
+from pyping import ping
 from time import sleep
 
 ALERT = False
 
-nodes = [
-    '192.168.43.184'
+nodesKnown = [
+    '192.168.43.184',
+    '192.168.43.185'
 ]
+
+nodesActive = [None] * len(nodes)
 
 panicAddress = ('', 10000)
 
@@ -25,7 +29,29 @@ class Node:
         self.type = type_t
         self.alarm = False
 
-sock = [None] * 10
+sockets = [None] * len(nodesKnown)
+
+def updateConnections():
+    for i in range(len(nodesKnown)):
+        if not ping(nodesKnown[i]):
+            continue
+        try:
+            nodesActive.append(nodesKnown[i])
+            newSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            newSocket.settimeout(2)
+
+            server_address = (nodesKnown[i], 10000)
+            newSocket.connect(server_address)
+            print ('connecting to %s port %s' % server_address)
+
+            msg = newSocket.recv(16)
+            if msg != 'CONN_ACK':
+                print('Node has not acknowledged new connection! Continuing...')
+            sockets.append(newSocket)
+        except:
+            print('[SEVERE] Socket connection failed unexpectedly! Socket list may be corrupted!')
+
+'''
 
 # Establish sockets for each node
 for i in range(len(nodes)):
@@ -34,23 +60,35 @@ for i in range(len(nodes)):
 
 # Connect to nodes
 print('Connecting to all known nodes')
-for i in range(len(nodes)):
-    server_address = (nodes[i], 10000)
+j = 0
+for i in range(len(nodesKnown)):
+    server_address = (nodesKnown[i], 10000)
     print ('connecting to %s port %s' % server_address)
-    sock[i].connect(server_address)
-    sock[i].sendall('CONN_INIT')
-    msg = sock[i].recv(16)
-    if msg != 'CONN_ACK':
-        print('Node has not acknowledged new connection! Continuing...')
+
+    try:
+        sock[i].connect(server_address)
+        sock[i].sendall('CONN_INIT')
+        msg = sock[i].recv(16)
+        nodesActive[j] = nodesKnown[i]
+        if msg != 'CONN_ACK':
+            print('Node has not acknowledged new connection! Continuing...')
+
+    except:
+        print('Could not reach %s', nodes[i])
+    
+    j += 1
+'''
+
+updateConnections()
 
 # Main Loop
 while True:
-    for i in range(len(nodes)):
+    for i in range(len(nodesActive)):
 
         # Send command to node
-        if ALERT and nodes[i] != panicAddress:
+        if ALERT and nodesActive[i] != panicAddress:
             sock[i].sendall('PANIC_EXTERN')
-        if ALERT and nodes[i] == panicAddress:
+        if ALERT and nodesActive[i] == panicAddress:
             sock[i].sendall('PANIC_CONT')
         else:
             sock[i].sendall('DATA_REQ')
@@ -61,10 +99,10 @@ while True:
 
         if msg == 'PANIC':
             ALERT = True
-            panicAddress = nodes[i]
-            print(nodes[i], ': Alert recieved')
+            panicAddress = nodesActive[i]
+            print(nodesActive[i], ': Alert recieved')
         elif msg == 'OK':
-            print(nodes[i], ': OK')
+            print(nodesActive[i], ': OK')
         else:
             print('Unknown message received from node! Continuing...')
     
