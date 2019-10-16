@@ -1,0 +1,5 @@
+/.vscode
+/__pycache__
+nodes.txt
+edges.txt
+*.pyc
