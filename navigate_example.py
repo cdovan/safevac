@@ -1,9 +1,15 @@
-from navigation import construct_graph, navigate_to_exit
+import navigation
 from dijkstar import find_path
 
-g = construct_graph("nodes.txt", "edges.txt")
+nodes = navigation.read_nodes("nodes.txt")
+edges = navigation.read_edges("edges.txt", nodes)
+
+graph = navigation.construct_graph(edges)
+
+navigation.set_obstacle(graph, 8)
+
 s = 3
 exits = [8, 16]
-path = navigate_to_exit(g, s, exits)
+path = navigation.path_to_exit(graph, s, exits)
 
 print(path)
