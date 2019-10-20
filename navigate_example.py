@@ -1,5 +1,4 @@
 import navigation
-from dijkstar import find_path
 
 nodes = navigation.read_nodes("nodes.txt")
 edges = navigation.read_edges("edges.txt", nodes)

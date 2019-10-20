@@ -1,6 +1,5 @@
 from dijkstar import Graph, find_path
 from math import sqrt
-from copy import deepcopy
 
 def path_to_exit(graph, s, exits):
 	min_cost = float("inf")
@@ -29,6 +28,8 @@ def remove_obstacle(graph, edges, v):
 			distance = edges[(v, u)]
 		elif (u, v) in edges:
 			distance = edges[(u, v)]
+		else:
+			raise Exception("Neither edge " + str((v, u)) + " nor edge " + str((u, v)) + " can be found in given edges.")
 		
 		graph.add_edge(v, u, { "cost": distance })
 		graph.add_edge(u, v, { "cost": distance })
