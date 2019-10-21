@@ -4,7 +4,7 @@ from pyping import ping
 from time import sleep
 from time import time
 
-ALERT = False
+ALERT = True
 
 nodesKnown = [
     '192.168.43.184',
@@ -34,10 +34,13 @@ class Node:
         self.type = type_t
         self.alarm = False
 
-sockets = [None] * len(nodesKnown)
+sockets = []
 
 def updateConnections():
     for i in range(len(nodesKnown)):
+        if nodesKnown[i] in nodesActive:
+            continue
+            
         try:
             newSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             newSocket.settimeout(0.5)
@@ -92,33 +95,42 @@ cmd = ''
 
 lastUpdate = time()
 updateConnections()
+panicAddress = ''
 
 # Main Loop
 while True:
     if time() - lastUpdate > 5:
         print('Updating list of active nodes')
+        lastUpdate = time()
         updateConnections()
 
     for i in range(len(sockets)):
+        if sockets[i] == None:
+            continue
 
         # Send command to node
         if ALERT and nodesActive[i] != panicAddress:
-            sockets[i].sendall('PANIC_EXTERN')
+            msg = 'PANIC_EXTERN'
         if ALERT and nodesActive[i] == panicAddress:
-            sockets[i].sendall('PANIC_CONT')
+            msg = 'PANIC_CONT'
         else:
-            sockets[i].sendall('DATA_REQ')
+            msg = 'DATA_REQ'
+        
+        print('Sending "%s"' % msg)
+        sockets[i].sendall(msg)
 
         # Receive and respond to node
         msg = sockets[i].recv(16)
         print('received "%s"' % msg)
 
-        if msg == 'PANIC':
-            print(nodesActive[i], ': Alert recieved')
+        if msg == 'PANIC_INIT':
+            print('%s: Alert recieved' % nodesActive[i])
             ALERT = True
             panicAddress = nodesActive[i]
+        elif msg == 'PANIC':
+            print('%s: Continuing panic' % nodesActive[i])
         elif msg == 'OK':
-            print(nodesActive[i], ': OK')
+            print('%s: OK' % nodesActive[i])
         else:
             print('Unknown message received from node! Continuing...')
     
