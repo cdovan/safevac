@@ -1,11 +1,47 @@
 from dijkstar import Graph, find_path
 from math import sqrt
 
+class Navigator:
+	def __init__(self, constr_site):
+		self.site = constr_site
+		self.path = None
+
+	def navigate_to_exit(self, own_position):
+		current_node = self.find_closest_node(own_position)
+
+		if self.path is None:
+			self.path = self.site.shortest_path_to_exit(current_node)
+		else:
+			if current_node not in self.path.nodes:
+				self.path = self.site.shortest_path_to_exit(current_node)
+
+		if len(self.path.nodes) == 1:
+			return None
+		else:
+			next_node_index = self.path.nodes.index(current_node) + 1
+			return self.path.nodes[next_node_index]
+
+	def find_closest_node(self, position):
+		shortest_dist = float("inf")
+		closest_node = None
+
+		for id, node in self.site.nodes.items():
+			dist = sqrt((node["x"] - position["x"])**2 + (node["y"] - position["y"])**2)
+			if (dist < shortest_dist):
+				shortest_dist = dist
+				closest_node = id
+		
+		return closest_node
+
 class ConstructionSite:
 	def __init__(self, nodes_filename, edges_filename):
 		self.nodes, self.exits = read_nodes(nodes_filename)
 		self.edges = read_edges(edges_filename, self.nodes)
 		self.graph = construct_graph(self.edges)
+		self.listeners = []
+
+	def add_edge_listener(self, listener):
+		self.listeners.append(listener)
 
 	def shortest_path_to_exit(self, s):
 		min_cost = float("inf")
@@ -24,6 +60,7 @@ class ConstructionSite:
 	def set_edge_obstacle(self, u, v):
 		self.graph.add_edge(u, v, { "cost": float("inf") })
 		self.graph.add_edge(v, u, { "cost": float("inf") })
+		
 
 	def remove_edge_obstacle(self, u, v):
 		if (v, u) in self.edges:
