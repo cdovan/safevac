@@ -59,7 +59,7 @@ while True:
     elif message == 'PANIC_EXTERN':
         ALERT = True
         reply = 'PANIC'
-        print('panic caused by exterior node: %s' % client_address)
+        print('panic caused by exterior node')
     elif message == 'PANIC_CONT':
         reply = 'PANIC'
         print('Server is in panic, continuing alarm')
