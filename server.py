@@ -92,6 +92,7 @@ for i in range(len(nodesKnown)):
     j += 1
 '''
 cmd = ''
+msg = ''
 
 lastUpdate = time()
 updateConnections()
@@ -103,6 +104,15 @@ while True:
         print('Updating list of active nodes')
         lastUpdate = time()
         updateConnections()
+    
+    print('Keyboard Interrupt to Stop Alert, two seconds')
+    tmp = time()
+    try:
+        while time() - tmp < 2:
+            None
+    except:
+        ALERT = False
+        msg = 'PANIC_OFF'
 
     for i in range(len(sockets)):
         if sockets[i] == None:
@@ -113,27 +123,28 @@ while True:
             msg = 'PANIC_EXTERN'
         elif ALERT and nodesActive[i] == panicAddress:
             msg = 'PANIC_CONT'
-        else:
+        elif msg != 'PANIC_OFF':
             msg = 'DATA_REQ'
         
         print('Sending "%s"' % msg)
         sockets[i].sendall(msg)
 
         # Receive and respond to node
-        msg = sockets[i].recv(16)
-        print('received "%s"' % msg)
+        reply = sockets[i].recv(16)
+        print('received "%s"' % reply)
 
-        if msg == 'PANIC_INIT':
+        if reply == 'PANIC_INIT':
             print('%s: Alert recieved' % nodesActive[i])
             ALERT = True
             panicAddress = nodesActive[i]
-        elif msg == 'PANIC':
+        elif reply == 'PANIC':
             print('%s: Continuing panic' % nodesActive[i])
-        elif msg == 'OK':
+        elif reply == 'OK':
             print('%s: OK' % nodesActive[i])
         else:
             print('Unknown message received from node! Continuing...')
     
+    msg = ''
     sleep(1)
 
 def cmdThread():
