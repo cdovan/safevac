@@ -30,8 +30,8 @@ connection, client_address = sock.accept()
 print('connection from', client_address)
 
 # Initial Handshake
-msg = connection.recv(16)
-if msg == 'CONN_INIT':
+message = connection.recv(16)
+if message == 'CONN_INIT':
     connection.sendall('CONN_ACK')
     print('Connection Sucessfully initilized')
 else:
@@ -40,27 +40,39 @@ else:
 # Main Loop
 while True:
     # Receive message from Server
-    msg = ''
-    while msg == '':
-        msg = connection.recv(16)
-    print('received "%s"' % msg)
+    message = ''
+    reply = ''
+    while message == '':
+        message = connection.recv(16)
+    print('received "%s"' % message)
+
+    print(button.is_pressed)
+    if button.is_pressed:
+        ALERT = True
 
     # Update State
-    if msg == 'DATA_REQ':
+    if message == 'DATA_REQ':
         if ALERT:
-            connection.sendall('PANIC')
+            reply = 'PANIC_INIT'
         else:
-            connection.sendall('OK')
+            reply = 'OK'
         print('server has requested data')
-    elif msg == 'PANIC_EXTERN':
+    elif message == 'PANIC_EXTERN':
         ALERT = True
-        print('panic caused by exterior node', client_address)
-    elif msg == 'PANIC_CONT':
+        reply = 'PANIC'
+        print('panic caused by exterior node' % client_address)
+    elif message == 'PANIC_CONT':
+        reply = 'PANIC'
         print('Server is in panic, continuing alarm')
-    elif msg == 'PANIC_OFF':
+    elif message == 'PANIC_OFF':
         ALERT = False
+        reply = 'OK'
         print('Server has stopped panic. Turning alarm off')
     else :
+        reply = 'WRONG_REQ'
         print('Unknown message received from server! Continuing...')
+    
+    print('Sending "%s"' % reply)
+    connection.sendall(reply)
 
 connection.close()
