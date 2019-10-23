@@ -46,6 +46,10 @@ while True:
         message = connection.recv(16)
     print('received "%s"' % message)
 
+    print(button.is_pressed)
+    if button.is_pressed:
+        ALERT = True
+
     # Update State
     if message == 'DATA_REQ':
         if ALERT:
@@ -56,7 +60,7 @@ while True:
     elif message == 'PANIC_EXTERN':
         ALERT = True
         reply = 'PANIC'
-        print('panic caused by exterior node', client_address)
+        print('panic caused by exterior node' % client_address)
     elif message == 'PANIC_CONT':
         reply = 'PANIC'
         print('Server is in panic, continuing alarm')
