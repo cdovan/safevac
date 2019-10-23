@@ -27,7 +27,7 @@ sock.listen(1)
 # Wait for request from Server
 print('Waiting for handshake from Server')
 connection, client_address = sock.accept()
-print('connection from %s' % client_address)
+print('connection from %s' % client_address[0])
 
 # Initial Handshake
 message = connection.recv(16)
@@ -46,7 +46,6 @@ while True:
         message = connection.recv(16)
     print('received "%s"' % message)
 
-    print(button.is_pressed)
     if button.is_pressed:
         ALERT = True
 
