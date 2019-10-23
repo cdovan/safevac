@@ -4,7 +4,7 @@ from pyping import ping
 from time import sleep
 from time import time
 
-ALERT = True
+ALERT = False
 
 nodesKnown = [
     '192.168.43.184',
@@ -111,7 +111,7 @@ while True:
         # Send command to node
         if ALERT and nodesActive[i] != panicAddress:
             msg = 'PANIC_EXTERN'
-        if ALERT and nodesActive[i] == panicAddress:
+        elif ALERT and nodesActive[i] == panicAddress:
             msg = 'PANIC_CONT'
         else:
             msg = 'DATA_REQ'
