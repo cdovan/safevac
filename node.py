@@ -12,7 +12,7 @@ led = LED(17)
 # Alarm Button
 button = Button(27)
 
-ALERT = False
+ALERT = True
 
 # TCP/IP socket
 server_address = ('192.168.43.184', 10000)
@@ -27,7 +27,7 @@ sock.listen(1)
 # Wait for request from Server
 print('Waiting for handshake from Server')
 connection, client_address = sock.accept()
-print('connection from', client_address)
+print('connection from %s' % client_address)
 
 # Initial Handshake
 message = connection.recv(16)
@@ -60,7 +60,7 @@ while True:
     elif message == 'PANIC_EXTERN':
         ALERT = True
         reply = 'PANIC'
-        print('panic caused by exterior node' % client_address)
+        print('panic caused by exterior node: %s' % client_address)
     elif message == 'PANIC_CONT':
         reply = 'PANIC'
         print('Server is in panic, continuing alarm')
