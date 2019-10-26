@@ -88,15 +88,18 @@ class RobotPathFinder:
 		# Strip unnecessary intermediate nodes from the path that are only relevant for the flow calculation
 		for robot, s in robots.items():
 			flow_path = find_flow_path(residual, s + 'o', 't')
-			flow_path.remove('t')
+			if flow_path == None:
+				paths[robot] = None
+			else:
+				flow_path.remove('t')
 
-			path = []
+				path = []
 
-			for fp in flow_path:
-				if fp[-1] == 'o':
-					path.append(fp[:-1])
-			
-			paths[robot] = path
+				for fp in flow_path:
+					if fp[-1] == 'o':
+						path.append(fp[:-1])
+				
+				paths[robot] = path
 		
 		return paths
 	
@@ -104,7 +107,8 @@ class RobotPathFinder:
 		self.emergency_paths[human] = path
 
 	def remove_emergency_path(self, human):
-		del self.emergency_paths[human]
+		if human in self.emergency_paths:
+			del self.emergency_paths[human]
 	
 	def set_flow_edge_obstacle(self, u, v):
 		set_flow_edge_obstacle(self.flow_graph, u, v)
@@ -158,7 +162,7 @@ class Navigator:
 			human_sources[h] = current_node
 
 			# Check whether human deviated from original path
-			path_changed = self.human_path_changed(h, current_node)
+			path_changed = self.human_off_path(h, current_node)
 			if path_changed:
 				# If so, calculate a new path based on current location
 
@@ -180,7 +184,7 @@ class Navigator:
 			current_node = find_closest_node(self.nodes, pos)
 			self.robots[r]['node'] = current_node
 			robot_sources[r] = current_node
-			path_changed = self.robot_path_changed(r, current_node)
+			path_changed = self.robot_off_path(r, current_node)
 			if path_changed:
 				any_robot_path_changed = True
 
@@ -189,19 +193,22 @@ class Navigator:
 			for r, path in robot_paths.items():
 				self.robots[r]['path'] = path
 
-	def robot_path_changed(self, robot, current_node):
-		if robot in self.robots:
-			return current_node not in self.robots[robot]
-		else:
-			return True
-
-	def human_path_changed(self, human, current_node):
+	def human_off_path(self, human, current_node):
 		if human in self.humans:
 			return current_node not in self.humans[human]
 		else:
 			return True
 
+	def robot_off_path(self, robot, current_node):
+		if robot in self.robots:
+			return current_node not in self.robots[robot]
+		else:
+			return True
+
 	def navigate_human(self, human):
+		if self.humans[human]['path'] == None:
+			return None
+
 		path = self.humans[human]['path']
 		current_node = self.humans[human]['node']
 
@@ -212,6 +219,9 @@ class Navigator:
 			return path[next_node_index]
 	
 	def navigate_robot(self, robot):
+		if self.robots[robot]['path'] == None:
+			return None
+
 		path = self.robots[robot]['path']
 		current_node = self.robots[robot]['node']
 
