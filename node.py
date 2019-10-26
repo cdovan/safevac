@@ -2,74 +2,86 @@ import socket
 import sys
 
 from gpiozero import LED
-from gpiozero import Button
 from time import sleep
 from threading import Thread
+from time import sleep
+import RPi.GPIO as GPIO
 
 # Alarm LED
 led = LED(17)
 
-# Alarm Button
-button = Button(27)
+GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-ALERT = True
+ALERT = False
 
 # TCP/IP socket
-server_address = ('192.168.43.184', 10000)
+server_address = ('192.168.43.184', 10001)
 print('Starting Alarm Server on %s port %s' % server_address)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.settimeout(10)
+sock.settimeout(3)
 sock.bind(server_address)
 
 # Start Listening
 sock.listen(1)
 
-# Wait for request from Server
-print('Waiting for handshake from Server')
-connection, client_address = sock.accept()
-print('connection from %s' % client_address[0])
+while True:
+    try:
+        # Wait for request from Server
+        print('Waiting for handshake from Server')
+        connection, client_address = sock.accept()
+        print('connection from %s' % client_address[0])
 
-# Initial Handshake
-message = connection.recv(16)
-if message == 'CONN_INIT':
-    connection.sendall('CONN_ACK')
-    print('Connection Sucessfully initilized')
-else:
-    print('Server has not properly acknowledged first interaction')
+        # Initial Handshake
+        message = connection.recv(16)
+        if message == b'CONN_INIT':
+            connection.sendall(b'CONN_ACK')
+            print('Connection Sucessfully initilized')
+        else:
+            print('Server has not properly acknowledged first interaction')
+        break
+    except:
+        print('Unable to connect to server, retrying in 5 seconds')
+        sleep(1)
 
 # Main Loop
 while True:
     # Receive message from Server
-    message = ''
-    reply = ''
-    while message == '':
+    message = b''
+    reply = b''
+    while message == b'':
         message = connection.recv(16)
     print('received "%s"' % message)
 
-    if button.is_pressed:
+    if GPIO.input(27) == GPIO.HIGH:
+        print('Button has been pressed')
         ALERT = True
 
     # Update State
-    if message == 'DATA_REQ':
+    if message == b'DATA_REQ':
         if ALERT:
-            reply = 'PANIC_INIT'
+            reply = b'PANIC_INIT'
         else:
-            reply = 'OK'
+            reply = b'OK'
         print('server has requested data')
-    elif message == 'PANIC_EXTERN':
+    elif message == b'PANIC_EXTERN':
         ALERT = True
-        reply = 'PANIC'
+        reply = b'PANIC'
         print('panic caused by exterior node')
-    elif message == 'PANIC_CONT':
-        reply = 'PANIC'
+    elif message == b'PANIC_CONT':
+        reply = b'PANIC'
         print('Server is in panic, continuing alarm')
-    elif message == 'PANIC_OFF':
+    elif message == b'PANIC_OFF':
         ALERT = False
-        reply = 'OK'
+        reply = b'OK'
         print('Server has stopped panic. Turning alarm off')
     else :
-        reply = 'WRONG_REQ'
+        reply = b'WRONG_REQ'
         print('Unknown message received from server! Continuing...')
+    
+    if ALERT:
+        led.on()
+    else:
+        led.off()
     
     print('Sending "%s"' % reply)
     connection.sendall(reply)
