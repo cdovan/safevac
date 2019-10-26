@@ -1,6 +1,5 @@
 import socket
 import sys
-from pyping import ping
 from time import sleep
 from time import time
 
@@ -43,15 +42,20 @@ def updateConnections():
             
         try:
             newSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            newSocket.settimeout(0.5)
+            newSocket.settimeout(3)
 
-            server_address = (nodesKnown[i], 10000)
-            print ('connecting to %s port %s' % server_address)
+            server_address = (nodesKnown[i], 10001)
+            print('Connecting to %s port %s' % server_address)
             newSocket.connect(server_address)
-            newSocket.sendall('CONN_INIT')
+            print('Connection Successful, sending init')
+            newSocket.sendall(b'CONN_INIT')
 
             msg = newSocket.recv(16)
-            if msg != 'CONN_ACK':
+            print('received "%s"' % msg)
+
+            if msg == b'CONN_ACK':
+                print('Node has acknowledged init')
+            else:
                 print('Node has not acknowledged new connection! Continuing...')
 
             sockets.append(newSocket)
@@ -59,40 +63,12 @@ def updateConnections():
         
         except:
             print('Unable to connect to node')
-            if nodesKnown[i] in nodesActive:
-                nodesActive.remove(nodesKnown[i])
+
     if (len(nodesActive) == 0):
         print('Unable to connect to any known nodes, retrying in 5 seconds...')
 
-'''
-
-# Establish sockets for each node
-for i in range(len(nodes)):
-    sock[i] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock[i].settimeout(10)
-
-# Connect to nodes
-print('Connecting to all known nodes')
-j = 0
-for i in range(len(nodesKnown)):
-    server_address = (nodesKnown[i], 10000)
-    print ('connecting to %s port %s' % server_address)
-
-    try:
-        sock[i].connect(server_address)
-        sock[i].sendall('CONN_INIT')
-        msg = sock[i].recv(16)
-        nodesActive[j] = nodesKnown[i]
-        if msg != 'CONN_ACK':
-            print('Node has not acknowledged new connection! Continuing...')
-
-    except:
-        print('Could not reach %s', nodes[i])
-    
-    j += 1
-'''
 cmd = ''
-msg = ''
+msg = b''
 
 lastUpdate = time()
 updateConnections()
@@ -105,47 +81,51 @@ while True:
         lastUpdate = time()
         updateConnections()
     
-    print('Keyboard Interrupt to Stop Alert, two seconds')
+    print('Keyboard Interrupt to Stop Alert, one second')
     tmp = time()
     try:
-        while time() - tmp < 2:
+        while time() - tmp < 1:
             None
-    except:
+    except KeyboardInterrupt:
         ALERT = False
-        msg = 'PANIC_OFF'
+        msg = b'PANIC_OFF'
 
     for i in range(len(sockets)):
-        if sockets[i] == None:
-            continue
+        try:
+            if sockets[i] == None:
+                continue
+            # Send command to node
+            if ALERT and nodesActive[i] != panicAddress:
+                msg = b'PANIC_EXTERN'
+            elif ALERT and nodesActive[i] == panicAddress:
+                msg = b'PANIC_CONT'
+            elif msg != b'PANIC_OFF':
+                msg = b'DATA_REQ'
 
-        # Send command to node
-        if ALERT and nodesActive[i] != panicAddress:
-            msg = 'PANIC_EXTERN'
-        elif ALERT and nodesActive[i] == panicAddress:
-            msg = 'PANIC_CONT'
-        elif msg != 'PANIC_OFF':
-            msg = 'DATA_REQ'
-        
-        print('Sending "%s"' % msg)
-        sockets[i].sendall(msg)
+            print('Sending "%s"' % msg)
+            sockets[i].sendall(msg)
 
-        # Receive and respond to node
-        reply = sockets[i].recv(16)
-        print('received "%s"' % reply)
+            # Receive and respond to node
+            reply = sockets[i].recv(16)
+            print('received "%s"' % reply)
 
-        if reply == 'PANIC_INIT':
-            print('%s: Alert recieved' % nodesActive[i])
-            ALERT = True
-            panicAddress = nodesActive[i]
-        elif reply == 'PANIC':
-            print('%s: Continuing panic' % nodesActive[i])
-        elif reply == 'OK':
-            print('%s: OK' % nodesActive[i])
-        else:
-            print('Unknown message received from node! Continuing...')
+            if reply == b'PANIC_INIT':
+                print('%s: Alert recieved' % nodesActive[i])
+                ALERT = True
+                panicAddress = nodesActive[i]
+            elif reply == b'PANIC':
+                print('%s: Continuing panic' % nodesActive[i])
+            elif reply == b'OK':
+                print('%s: OK' % nodesActive[i])
+            else:
+                print('Unknown message received from node! Continuing...')
+        except:
+            print('Node connection is broken!')
+            sockets[i].close()
+            sockets.remove(sockets[i])
+            nodesActive.remove(nodesActive[i])
     
     msg = ''
-    sleep(1)
 
 def cmdThread():
     while True:
