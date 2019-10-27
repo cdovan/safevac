@@ -5,6 +5,9 @@ from coapthon.client.helperclient import HelperClient
 import logging
 import re
 
+# Debug mode
+debug_mode = False
+
 # Disable logging
 logger = logging.getLogger('coapthon')
 logger.setLevel(logging.ERROR)
@@ -58,14 +61,22 @@ server_tagid = -1
 
 class LocationRequester:
     def __init__(self):
-        self.location_server = LocationServer(host, port, groupid, server_id, server_tagid)
+        if not debug_mode:
+            self.location_server = LocationServer(host, port, groupid, server_id, server_tagid)
         self.devices = []
     
     def register_device(self, tagid):
-        LocationServer(host, port, groupid, tagid, tagid)
+        if not debug_mode:
+            LocationServer(host, port, groupid, tagid, tagid)
         self.devices.append(tagid)
     
     def request_locations(self):
+        if debug_mode:
+            locations = {}
+            for t in self.devices:
+                locations[t] = { "x": 8, "y": t * 4}
+            return locations
+
         device_query = (",").join(str(d) for d in self.devices)
         results = self.location_server.getLocation(groupid=groupid, deviceid=device_query)
         locations = {}
