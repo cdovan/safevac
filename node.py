@@ -14,8 +14,8 @@ GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 # tagid is determined by location tag that is used for the device
 tagid = 1
-# 0 for robot, 1 for human
-is_human = 0
+# number indicating device type
+device_type = 5
 
 ALERT = False
 
@@ -39,7 +39,7 @@ while True:
         # Initial Handshake
         message = connection.recv(16)
         if message == b'CONNINIT':
-            connection.sendall(b'CONNACK_%d_%d' % (tagid, is_human))
+            connection.sendall(b'CONNACK_%d_%d' % (tagid, device_type))
             print('Connection Sucessfully initilized')
         else:
             print('Server has not properly acknowledged first interaction')
