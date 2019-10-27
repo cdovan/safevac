@@ -12,10 +12,15 @@ led = LED(17)
 
 GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
+# tagid is determined by location tag that is used for the device
+tagid = 1
+# 0 for robot, 1 for human
+is_human = 0
+
 ALERT = False
 
 # TCP/IP socket
-server_address = ('192.168.43.184', 10001)
+server_address = ('192.168.43.184', 10000)
 print('Starting Alarm Server on %s port %s' % server_address)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.settimeout(3)
@@ -33,8 +38,8 @@ while True:
 
         # Initial Handshake
         message = connection.recv(16)
-        if message == b'CONN_INIT':
-            connection.sendall(b'CONN_ACK')
+        if message == b'CONNINIT':
+            connection.sendall(b'CONNACK_%d_%d' % (tagid, is_human))
             print('Connection Sucessfully initilized')
         else:
             print('Server has not properly acknowledged first interaction')
@@ -57,25 +62,36 @@ while True:
         ALERT = True
 
     # Update State
-    if message == b'DATA_REQ':
+
+    data = str(message)[2:-1].split("_")
+
+    if data[0] == 'DATAREQ':
         if ALERT:
-            reply = b'PANIC_INIT'
+            reply = b'PANICINIT'
         else:
             reply = b'OK'
         print('server has requested data')
-    elif message == b'PANIC_EXTERN':
+    elif data[0] == 'PANICEXTERN':
         ALERT = True
         reply = b'PANIC'
         print('panic caused by exterior node')
-    elif message == b'PANIC_CONT':
+        if data[1] == '':
+            print('No navigation instruction')
+        else:
+            print('Navigation instruction: Go to %s' % data[1])
+    elif data[0] == 'PANICCONT':
         reply = b'PANIC'
         print('Server is in panic, continuing alarm')
-    elif message == b'PANIC_OFF':
+        if data[1] == '':
+            print('No navigation instruction')
+        else:
+            print('Navigation instruction: Go to %s' % data[1])
+    elif data[0] == 'PANICOFF':
         ALERT = False
         reply = b'OK'
         print('Server has stopped panic. Turning alarm off')
     else :
-        reply = b'WRONG_REQ'
+        reply = b'WRONGREQ'
         print('Unknown message received from server! Continuing...')
     
     if ALERT:
