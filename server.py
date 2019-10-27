@@ -6,18 +6,14 @@ import navigation as nav
 from location_requester import LocationRequester
 
 ALERT = False
+PORT = 10000
 
 nodesKnown = [
     '192.168.43.184',
     '192.168.43.185'
 ]
 
-commands = {
-    'a'
-}
-
 nodesActive = {}
-
 panicAddress = ('', 10000)
 
 loc_req = LocationRequester()
@@ -28,21 +24,6 @@ map_edges = nav.read_edges("edges.txt", map_nodes)
 human_pf = nav.HumanPathFinder(map_nodes, exits, map_edges)
 robot_pf = nav.RobotPathFinder(map_nodes, exits, map_edges)
 navigator = nav.Navigator(map_nodes, human_pf, robot_pf)
-
-class type_t:
-    human = 1
-    arm = 2
-    car = 3
-    crane = 4
-    detector = 5
-
-class Node:
-    def __init__(self, ip, type_t):
-        self.ip = ip
-        self.port = 10000
-        self.address = (ip, self.port)
-        self.type = type_t
-        self.alarm = False
 
 def updateConnections():
     for n in nodesKnown:
@@ -179,11 +160,4 @@ while True:
     for ip in lost_nodes:
         del nodesActive[ip]
     
-    msg = ''
-
-def cmdThread():
-    while True:
-        print('SAFEVAC Server Console')
-        cmd = raw_input('$ ')
-        if cmd not in commands:
-            print('Invalid input')
+    msg = b''
