@@ -39,11 +39,11 @@ class HumanPathFinder:
 		self.graph.edges[v, u]['weight'] = self.graph.edges[v, u]['distance']
 
 	def set_node_obstacle(self, v):
-		for u in self.graph.get_incoming(v):
+		for u in self.graph[v].keys():
 			self.set_edge_obstacle(u, v)
 
 	def remove_node_obstacle(self, v):
-		for u in self.graph.get_incoming(v):
+		for u in self.graph[v].keys():
 			self.remove_edge_obstacle(u, v)
 
 class RobotPathFinder:
@@ -55,6 +55,9 @@ class RobotPathFinder:
 		self.emergency_paths = {}
 
 	def shortest_paths_to_safe_space(self, humans, robots):
+		if len(robots) == 0:
+			return {}
+		
 		flow_graph = deepcopy(self.flow_graph)
 		
 		# Paths should start at the nodes where robots are located
@@ -149,9 +152,17 @@ class Navigator:
 	
 	def register_robot(self, robot):
 		self.robots[robot] = { 'path': None, 'node': None }
+	
+	def update_human_path(self, human):
+		current_node = human['node']
+		path = self.hpf.shortest_path_to_exit(current_node)
+		self.humans[human]['path'] = path
 
-	def update_positions(self, human_positions, robot_positions):
-		any_human_path_changed = False
+		# Add new path to the emergency paths
+		self.rpf.set_emergency_path(human, path)
+
+	def update_positions(self, human_positions, robot_positions, force_path_update=False):
+		any_human_path_changed = force_path_update
 		human_sources = {}
 
 		# Convert human positions into nodes
@@ -162,22 +173,21 @@ class Navigator:
 			human_sources[h] = current_node
 
 			# Check whether human deviated from original path
-			path_changed = self.human_off_path(h, current_node)
-			if path_changed:
+			should_update_path = force_path_update
+
+			if not should_update_path:
+				should_update_path = self.human_off_path(h, current_node)
+			
+			if should_update_path:
 				# If so, calculate a new path based on current location
-
-				path = self.hpf.shortest_path_to_exit(current_node)
-				self.humans[h]['path'] = path
-
-				# Add new path to the emergency paths
-				self.rpf.set_emergency_path(h, path)
+				self.update_human_path(h)
 				any_human_path_changed = True
 			else:
 				# Check whether end of path has been reached
 				if current_node == self.humans[h]['path'][-1]:
 					self.rpf.remove_emergency_path(h)
 		
-		any_robot_path_changed = False
+		any_robot_path_changed = force_path_update
 		robot_sources = {}
 
 		for r, pos in robot_positions.items():
@@ -195,13 +205,13 @@ class Navigator:
 
 	def human_off_path(self, human, current_node):
 		if human in self.humans:
-			return current_node not in self.humans[human]
+			return current_node not in self.humans[human]['path']
 		else:
 			return True
 
 	def robot_off_path(self, robot, current_node):
 		if robot in self.robots:
-			return current_node not in self.robots[robot]
+			return current_node not in self.robots[robot]['path']
 		else:
 			return True
 
