@@ -50,6 +50,8 @@ def updateConnections():
             continue
             
         try:
+            newSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            newSocket.settimeout(3)
             server_address = (n, 10001)
             print('Connecting to %s port %s' % server_address)
             newSocket.connect(server_address)
@@ -157,13 +159,15 @@ while True:
             reply = node_socket.recv(16)
             print('received "%s"' % reply)
 
-            if reply == b'PANICINIT':
+            reply_data = str(reply)[2:-1].split('_')
+
+            if reply_data[0] == 'PANICINIT':
                 print('%s: Alert recieved' % ip)
                 ALERT = True
                 panicAddress = ip
-            elif reply == b'PANIC':
+            elif reply_data[0] == 'PANIC':
                 print('%s: Continuing panic' % ip)
-            elif reply == b'OK':
+            elif reply_data[0] == 'OK':
                 print('%s: OK' % ip)
             else:
                 print('Unknown message received from node! Continuing...')
