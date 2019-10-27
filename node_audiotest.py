@@ -21,10 +21,12 @@ sock.listen(1)
 
 def audioThread():
     while True:
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
+        if ALERT:
+            play_obj = wave_obj.play()
+            play_obj.wait_done()
 
 audio = Thread(target=audioThread)
+audio.start()
 
 while True:
     try:
@@ -77,9 +79,8 @@ while True:
         print('Unknown message received from server! Continuing...')
     
     if ALERT:
-        audio.start()
-    else:
-        audio._stop()
+        if not audio.isAlive:
+            None
     
     print('Sending "%s"' % reply)
     connection.sendall(reply)
