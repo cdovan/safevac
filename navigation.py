@@ -116,11 +116,11 @@ class RobotPathFinder:
 	def remove_flow_edge_obstacle(self, u, v):
 		remove_flow_edge_obstacle(self.flow_graph, u, v)
 	
-	def set_flow_edge_obstacle(self, v):
+	def set_flow_node_obstacle(self, v):
 		set_flow_node_obstacle(self.flow_graph, v)
 	
-	def set_flow_edge_obstacle(self, v):
-		remove_flow_edge_obstacle(self.flow_graph, v)
+	def remove_flow_node_obstacle(self, v):
+		remove_flow_node_obstacle(self.flow_graph, v)
 
 def set_flow_edge_obstacle(flow_graph, u, v):
 	flow_graph.remove_edge(u + 'o', v + 'i')
@@ -175,7 +175,7 @@ class Navigator:
 			else:
 				# Check whether end of path has been reached
 				if current_node == self.humans[h]['path'][-1]:
-					self.rfp.remove_emergency_path(h)
+					self.rpf.remove_emergency_path(h)
 		
 		any_robot_path_changed = False
 		robot_sources = {}
