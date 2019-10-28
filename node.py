@@ -7,6 +7,8 @@ from threading import Thread
 from time import sleep
 import RPi.GPIO as GPIO
 
+import device_types
+
 # Alarm LED
 led = LED(17)
 
@@ -15,7 +17,7 @@ GPIO.setup(27, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 # tagid is determined by location tag that is used for the device
 tagid = 1
 # number indicating device type
-device_type = 5
+device_type = device_types.HUMAN
 
 ALERT = False
 

@@ -1,0 +1,5 @@
+HUMAN = 1
+ARM = 2
+CAR = 3
+CRANE = 4
+DETECTOR = 5

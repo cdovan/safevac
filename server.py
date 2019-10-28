@@ -4,20 +4,17 @@ from time import sleep
 from time import time
 import navigation as nav
 from location_requester import LocationRequester
+import device_types
 
 ALERT = False
+PORT = 10000
 
 nodesKnown = [
     '192.168.43.184',
     '192.168.43.185'
 ]
 
-commands = {
-    'a'
-}
-
 nodesActive = {}
-
 panicAddress = ('', 10000)
 
 loc_req = LocationRequester()
@@ -28,21 +25,8 @@ map_edges = nav.read_edges("edges.txt", map_nodes)
 human_pf = nav.HumanPathFinder(map_nodes, exits, map_edges)
 robot_pf = nav.RobotPathFinder(map_nodes, exits, map_edges)
 navigator = nav.Navigator(map_nodes, human_pf, robot_pf)
-
-class type_t:
-    human = 1
-    arm = 2
-    car = 3
-    crane = 4
-    detector = 5
-
-class Node:
-    def __init__(self, ip, type_t):
-        self.ip = ip
-        self.port = 10000
-        self.address = (ip, self.port)
-        self.type = type_t
-        self.alarm = False
+force_path_update = False
+pending_dangers = []
 
 def updateConnections():
     for n in nodesKnown:
@@ -52,7 +36,7 @@ def updateConnections():
         try:
             newSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             newSocket.settimeout(3)
-            server_address = (n, 10001)
+            server_address = (n, 10000)
             print('Connecting to %s port %s' % server_address)
             newSocket.connect(server_address)
             print('Connection Successful, sending init')
@@ -65,16 +49,16 @@ def updateConnections():
 
             if data[0] == 'CONNACK':
                 tagid = int(data[1])
-                is_human = int(data[2]) == 1
+                node_type = int(data[2])
             
                 loc_req.register_device(tagid)
 
-                if is_human:
+                if node_type == device_types.HUMAN:
                     navigator.register_human(tagid)
-                else:
+                elif node_type != device_types.DETECTOR:
                     navigator.register_robot(tagid)
 
-                nodesActive[n] = (newSocket, tagid, is_human)
+                nodesActive[n] = (newSocket, tagid, node_type)
 
                 print('Node has acknowledged init')
             else:
@@ -92,20 +76,67 @@ lastUpdate = time()
 updateConnections()
 panicAddress = ''
 
-def update_positions():
-    locations = loc_req.request_locations()
+def update_positions(locations):
     humans = {}
     robots = {}
 
     for data in nodesActive.values():
         tagid = data[1]
-        is_human = data[2]
-        if is_human:
+        node_type = data[2]
+        if node_type == device_types.HUMAN:
             humans[tagid] = locations[tagid]
-        else:
+        elif node_type != device_types.DETECTOR:
             robots[tagid] = locations[tagid]
 
-    navigator.update_positions(humans, robots)
+    global force_path_update
+    navigator.update_positions(humans, robots, force_path_update)
+    force_path_update = False
+
+def mark_safety(pos):
+    if pos in pending_dangers:
+        pending_dangers.remove(pos)
+
+    human_pf.remove_node_obstacle(pos)
+    robot_pf.remove_flow_node_obstacle(pos)
+
+    global force_path_update
+    force_path_update = True
+
+def mark_danger(pos):
+    pending_dangers.append(pos)
+
+def update_dangers():
+    applied_obstructions = []
+
+    for n in pending_dangers:
+        can_obstruct = True
+        # Checks whether any humans are on the 
+        # If so, obstruction is prevented so human can escape
+        for h in navigator.humans:
+            if h['node'] == n:
+                can_obstruct = False
+                break
+        
+        if can_obstruct:
+            human_pf.set_node_obstacle(n)
+            robot_pf.set_flow_node_obstacle(n)
+
+            global force_path_update
+            force_path_update = True
+            applied_obstructions.append(n)
+    
+    for n in applied_obstructions:
+        pending_dangers.remove(n)
+
+def get_node_position(locations, tag_id, node_type):
+    pos = None
+    if node_type == device_types.DETECTOR:
+        pos = nav.find_closest_node(map_nodes, locations[tagid])
+    elif node_type == device_types.HUMAN:
+        pos = navigator.humans[tagid]['node']
+    else:
+        pos = navigator.robots[tagid]['node']
+    return pos
 
 # Main Loop
 while True:
@@ -123,22 +154,25 @@ while True:
         ALERT = False
         msg = b'PANICOFF'
     
-    update_positions()
+    update_dangers()
+
+    locations = loc_req.request_locations()
+    update_positions(locations)
 
     lost_nodes = []
 
     for ip,data in nodesActive.items():
         node_socket = data[0]
         tagid = data[1]
-        is_human = data[2]
+        node_type = data[2]
 
         try:
             # navigation update
             map_node = None
 
-            if is_human:
+            if node_type == device_types.HUMAN:
                 map_node = navigator.navigate_human(tagid)
-            else:
+            elif node_type != device_types.DETECTOR:
                 map_node = navigator.navigate_robot(tagid)
             
             if map_node == None:
@@ -165,8 +199,24 @@ while True:
                 print('%s: Alert recieved' % ip)
                 ALERT = True
                 panicAddress = ip
+                if node_type == device_types.DETECTOR:
+                    pos = get_node_position(locations, tagid, node_type)
+                    mark_danger(pos)
+                    print('%s: Detector alert, dangerous place marked' % ip)
             elif reply_data[0] == 'PANIC':
                 print('%s: Continuing panic' % ip)
+            elif reply_data[0] == 'DANGERPLACE':
+                pos = get_node_position(locations, tagid, node_type)
+                if pos != None:
+                    mark_danger(pos)
+                
+                print('%s: Dangerous place marker received' % ip)
+            elif reply_data[0] == 'SAFEPLACE':
+                pos = get_node_position(locations, tagid, node_type)
+                if pos != None:
+                    mark_safety(pos)
+                
+                print('%s: Safe place marker received' % ip)
             elif reply_data[0] == 'OK':
                 print('%s: OK' % ip)
             else:
@@ -179,11 +229,4 @@ while True:
     for ip in lost_nodes:
         del nodesActive[ip]
     
-    msg = ''
-
-def cmdThread():
-    while True:
-        print('SAFEVAC Server Console')
-        cmd = raw_input('$ ')
-        if cmd not in commands:
-            print('Invalid input')
+    msg = b''
