@@ -29,6 +29,9 @@ class HumanPathFinder:
 			if lengths[e] < min_distance:
 				min_distance = lengths[e]
 				min_path = paths[e]
+		
+		if min_path == None:
+			min_path = []
 	
 		return min_path
 	
@@ -92,7 +95,7 @@ class RobotPathFinder:
 		for robot, s in robots.items():
 			flow_path = find_flow_path(residual, s + 'o', 't')
 			if flow_path == None:
-				paths[robot] = None
+				paths[robot] = []
 			else:
 				flow_path.remove('t')
 
@@ -126,15 +129,19 @@ class RobotPathFinder:
 		remove_flow_node_obstacle(self.flow_graph, v)
 
 def set_flow_edge_obstacle(flow_graph, u, v):
-	flow_graph.remove_edge(u + 'o', v + 'i')
-	flow_graph.remove_edge(v + 'o', u + 'i')
+	if (u + 'o', v + 'i') in flow_graph:
+		flow_graph.remove_edge(u + 'o', v + 'i')
+	
+	if (v + 'o', u + 'i') in flow_graph:
+		flow_graph.remove_edge(v + 'o', u + 'i')
 
 def remove_flow_edge_obstacle(flow_graph, u, v):
 	flow_graph.add_edge(u + 'o', v + 'i', capacity=1)
 	flow_graph.add_edge(v + 'o', u + 'i', capacity=1)
 
 def set_flow_node_obstacle(flow_graph, v):
-	flow_graph.remove_edge(v + 'i', v + 'o')
+	if (v + 'i', v + 'o') in flow_graph:
+		flow_graph.remove_edge(v + 'i', v + 'o')
 
 def remove_flow_node_obstacle(flow_graph, v):
 	flow_graph.add_edge(v + 'i', v + 'o', capacity=1)
@@ -148,13 +155,13 @@ class Navigator:
 		self.rpf = rpf
 	
 	def register_human(self, human):
-		self.humans[human] = { 'path': None, 'node': None }
+		self.humans[human] = { 'path': [], 'node': None }
 	
 	def register_robot(self, robot):
-		self.robots[robot] = { 'path': None, 'node': None }
+		self.robots[robot] = { 'path': [], 'node': None }
 	
 	def update_human_path(self, human):
-		current_node = human['node']
+		current_node = self.humans[human]['node']
 		path = self.hpf.shortest_path_to_exit(current_node)
 		self.humans[human]['path'] = path
 
@@ -271,7 +278,7 @@ def read_edges(filename, nodes):
 		node2 = edge[1]
 		node_data1 = nodes[node1]
 		node_data2 = nodes[node2]
-		distance = sqrt((node_data1["x"] - node_data2["x"])**2 + (node_data1["y"] - node_data2["y"])**2)
+		distance = sqrt((float(node_data1["x"]) - float(node_data2["x"]))**2 + (float(node_data1["y"]) - float(node_data2["y"]))**2)
 		edges[(node1, node2)] = distance
 	
 	f.close()
@@ -282,7 +289,7 @@ def find_closest_node(nodes, position):
 	closest_node = None
 
 	for id, node in nodes.items():
-		dist = sqrt((node["x"] - position["x"])**2 + (node["y"] - position["y"])**2)
+		dist = sqrt((float(node["x"]) - float(position["x"]))**2 + (float(node["y"]) - float(position["y"]))**2)
 		if (dist < shortest_dist):
 			shortest_dist = dist
 			closest_node = id
